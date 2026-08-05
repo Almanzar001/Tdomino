@@ -1,6 +1,14 @@
 import { createClient } from '@insforge/sdk'
 
+declare global {
+  interface Window {
+    __ENV__?: Record<string, string>
+  }
+}
+
+const runtimeEnv = typeof window !== 'undefined' ? (window.__ENV__ ?? {}) : {}
+
 export const insforge = createClient({
-  baseUrl: import.meta.env.VITE_INSFORGE_URL,
-  anonKey: import.meta.env.VITE_INSFORGE_ANON_KEY,
+  baseUrl: runtimeEnv.VITE_INSFORGE_URL || import.meta.env.VITE_INSFORGE_URL,
+  anonKey: runtimeEnv.VITE_INSFORGE_ANON_KEY || import.meta.env.VITE_INSFORGE_ANON_KEY,
 })

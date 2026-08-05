@@ -5,17 +5,13 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-
-ARG VITE_INSFORGE_URL
-ARG VITE_INSFORGE_ANON_KEY
-ENV VITE_INSFORGE_URL=$VITE_INSFORGE_URL
-ENV VITE_INSFORGE_ANON_KEY=$VITE_INSFORGE_ANON_KEY
-
 RUN npm run build
 
 FROM nginx:1.27-alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/entrypoint.sh"]
