@@ -39,10 +39,10 @@ export default function GlobalLeaderboard() {
               <tr>
                 <th>#</th>
                 <th>Jugador</th>
-                <th>Ganadas</th>
-                <th>Paseos</th>
-                <th>Perdidas</th>
-                <th className="points-col">Puntos</th>
+                <th title="Ganadas">G</th>
+                <th title="Paseos">PA</th>
+                <th title="Perdidas">PE</th>
+                <th className="points-col" title="Puntos">PTS</th>
               </tr>
             </thead>
             <tbody>
