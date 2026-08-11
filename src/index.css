@@ -150,6 +150,15 @@ button.secondary:hover:not(:disabled) {
   box-shadow: none;
 }
 
+button.secondary.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+button.secondary.danger:hover:not(:disabled) {
+  background: rgba(255, 91, 91, 0.12);
+}
+
 .secondary-link {
   display: inline-flex;
   align-items: center;
@@ -425,6 +434,52 @@ main {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.tournament-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.75rem;
+  margin: 1rem 0 0.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tournament-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tournament-tabs button {
+  flex-shrink: 0;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  box-shadow: none;
+  font-size: 0.85rem;
+  padding: 0.5em 1.1em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tournament-tabs button:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--accent);
+}
+
+.tournament-tabs button.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tab-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--live);
+  animation: pulse-dot 1.4s ease-in-out infinite;
 }
 
 .section {
@@ -784,6 +839,9 @@ th.points-col {
 
 .actions-row {
   margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 .auth-error {

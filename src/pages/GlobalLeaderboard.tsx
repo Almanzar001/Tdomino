@@ -1,71 +1,90 @@
 import { useEffect, useState } from 'react'
 import { insforge } from '../lib/insforge'
-import PlayerAvatar from '../components/PlayerAvatar'
-import type { PlayerLeaderboardRow } from '../types'
+import LeaderboardTable, { type LeaderboardRow } from '../components/LeaderboardTable'
+import type { Tournament } from '../types'
 
-const MEDALS = ['🥇', '🥈', '🥉']
-const RANK_CLASS = ['rank-1', 'rank-2', 'rank-3']
+const ALL = 'all'
 
 export default function GlobalLeaderboard() {
-  const [rows, setRows] = useState<PlayerLeaderboardRow[]>([])
+  const [tournaments, setTournaments] = useState<Tournament[]>([])
+  const [selected, setSelected] = useState<string>(ALL)
+  const [rows, setRows] = useState<LeaderboardRow[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function load() {
+    async function loadTournaments() {
       const { data, error } = await insforge.database
-        .from('player_leaderboard')
+        .from('tournaments')
         .select()
-        .order('points', { ascending: false })
-        .order('paseos', { ascending: false })
-      if (!error && data) setRows(data as PlayerLeaderboardRow[])
+        .order('status', { ascending: true })
+        .order('created_at', { ascending: false })
+      if (!error && data) setTournaments(data as Tournament[])
+    }
+    void loadTournaments()
+  }, [])
+
+  useEffect(() => {
+    async function loadRows() {
+      setLoading(true)
+      if (selected === ALL) {
+        const { data, error } = await insforge.database
+          .from('player_leaderboard')
+          .select()
+          .order('points', { ascending: false })
+          .order('paseos', { ascending: false })
+        if (!error && data) setRows(data as LeaderboardRow[])
+      } else {
+        const { data, error } = await insforge.database
+          .from('tournament_leaderboard')
+          .select()
+          .eq('tournament_id', selected)
+          .order('points', { ascending: false })
+          .order('paseos', { ascending: false })
+        if (!error && data) setRows(data as LeaderboardRow[])
+      }
       setLoading(false)
     }
-    void load()
-  }, [])
+    void loadRows()
+  }, [selected])
 
   return (
     <div className="page">
       <div className="page-header">
-        <h1>🏆 Tabla de líderes general</h1>
+        <h1>🏆 Tabla de líderes</h1>
       </div>
+
+      <div className="tournament-tabs">
+        <button
+          type="button"
+          className={selected === ALL ? 'active' : ''}
+          onClick={() => setSelected(ALL)}
+        >
+          General
+        </button>
+        {tournaments.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={selected === t.id ? 'active' : ''}
+            onClick={() => setSelected(t.id)}
+          >
+            {t.name}
+            {t.status === 'active' && <span className="tab-live-dot" aria-hidden="true" />}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <p className="muted">Cargando…</p>
-      ) : rows.length === 0 ? (
-        <p className="empty-state">Aún no hay partidas registradas.</p>
       ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Jugador</th>
-                <th title="Ganadas">G</th>
-                <th title="Paseos">PA</th>
-                <th title="Perdidas">PE</th>
-                <th className="points-col" title="Puntos">PTS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.player_id} className={i === 0 && r.points > 0 ? 'leader-row' : ''}>
-                  <td className="rank-cell">{MEDALS[i] ?? i + 1}</td>
-                  <td>
-                    <span className="name-cell">
-                      <span className={`avatar-slot ${RANK_CLASS[i] ?? ''}`}>
-                        <PlayerAvatar name={r.player_name} url={r.player_avatar_url} size={i < 3 ? 72 : 52} />
-                      </span>
-                      {r.player_name}
-                    </span>
-                  </td>
-                  <td>{r.wins}</td>
-                  <td><strong>{r.paseos}</strong></td>
-                  <td>{r.losses}</td>
-                  <td className="points-col">{r.points}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <LeaderboardTable
+          rows={rows}
+          emptyMessage={
+            selected === ALL
+              ? 'Aún no hay partidas registradas.'
+              : 'Aún no hay partidas registradas en este torneo.'
+          }
+        />
       )}
     </div>
   )

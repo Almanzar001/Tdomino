@@ -1,21 +1,25 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { insforge } from '../lib/insforge'
 import { useAuth } from '../context/AuthContext'
 import { uploadPlayerPhoto } from '../lib/uploadPlayerPhoto'
 import PlayerAvatar from '../components/PlayerAvatar'
-import { GAME_POINTS, type Game, type Player, type Tournament, type TournamentPlayer } from '../types'
+import LeaderboardTable from '../components/LeaderboardTable'
+import { GAME_POINTS, type Game, type Player, type Tournament, type TournamentLeaderboardRow, type TournamentPlayer } from '../types'
 
 export default function TournamentDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [allPlayers, setAllPlayers] = useState<Player[]>([])
   const [roster, setRoster] = useState<TournamentPlayer[]>([])
   const [games, setGames] = useState<Game[]>([])
+  const [leaderboard, setLeaderboard] = useState<TournamentLeaderboardRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [dangerBusy, setDangerBusy] = useState(false)
 
   const [newPlayerName, setNewPlayerName] = useState('')
   const [newPlayerFile, setNewPlayerFile] = useState<File | null>(null)
@@ -62,17 +66,24 @@ export default function TournamentDetail() {
   async function loadAll() {
     if (!id) return
     setLoading(true)
-    const [tournamentRes, playersRes, rosterRes, gamesRes] = await Promise.all([
+    const [tournamentRes, playersRes, rosterRes, gamesRes, leaderboardRes] = await Promise.all([
       insforge.database.from('tournaments').select().eq('id', id).maybeSingle(),
       insforge.database.from('players').select().order('name', { ascending: true }),
       insforge.database.from('tournament_players').select().eq('tournament_id', id),
       insforge.database.from('games').select().eq('tournament_id', id).order('played_at', { ascending: false }),
+      insforge.database
+        .from('tournament_leaderboard')
+        .select()
+        .eq('tournament_id', id)
+        .order('points', { ascending: false })
+        .order('paseos', { ascending: false }),
     ])
 
     if (tournamentRes.data) setTournament(tournamentRes.data as Tournament)
     if (playersRes.data) setAllPlayers(playersRes.data as Player[])
     if (rosterRes.data) setRoster(rosterRes.data as TournamentPlayer[])
     if (gamesRes.data) setGames(gamesRes.data as Game[])
+    if (leaderboardRes.data) setLeaderboard(leaderboardRes.data as TournamentLeaderboardRow[])
     setLoading(false)
   }
 
@@ -284,6 +295,46 @@ export default function TournamentDetail() {
     if (!error) void loadAll()
   }
 
+  async function handleResetGames() {
+    if (!id || !tournament) return
+    if (
+      !window.confirm(
+        `Esto borrará todas las partidas de "${tournament.name}" y pondrá la tabla de posiciones en cero. Los jugadores inscritos se mantienen. ¿Continuar?`
+      )
+    ) {
+      return
+    }
+    setDangerBusy(true)
+    setError(null)
+    const { error } = await insforge.database.from('games').delete().eq('tournament_id', id)
+    setDangerBusy(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    void loadAll()
+  }
+
+  async function handleDeleteTournament() {
+    if (!id || !tournament) return
+    if (
+      !window.confirm(
+        `Esto eliminará el torneo "${tournament.name}" por completo, junto con sus jugadores inscritos y todas sus partidas. Esta acción no se puede deshacer. ¿Continuar?`
+      )
+    ) {
+      return
+    }
+    setDangerBusy(true)
+    setError(null)
+    const { error } = await insforge.database.from('tournaments').delete().eq('id', id)
+    setDangerBusy(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    navigate('/')
+  }
+
   if (loading) return <div className="page"><p className="muted">Cargando…</p></div>
   if (!tournament) return <div className="page"><p className="muted">Torneo no encontrado.</p></div>
 
@@ -311,8 +362,19 @@ export default function TournamentDetail() {
           ) : (
             <button onClick={handleReopen} className="secondary">Reabrir torneo</button>
           )}
+          <button onClick={handleResetGames} className="secondary danger" disabled={dangerBusy}>
+            Reiniciar partidas
+          </button>
+          <button onClick={handleDeleteTournament} className="secondary danger" disabled={dangerBusy}>
+            Eliminar torneo
+          </button>
         </div>
       )}
+
+      <section className="section">
+        <h2>🏆 Tabla de posiciones</h2>
+        <LeaderboardTable rows={leaderboard} emptyMessage="Aún no hay partidas registradas en este torneo." />
+      </section>
 
       <section className="section">
         <h2>Jugadores del torneo</h2>
