@@ -12,18 +12,20 @@ export default function TournamentsList() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load() {
-    setLoading(true)
+  async function load(silent = false) {
+    if (!silent) setLoading(true)
     const { data, error } = await insforge.database
       .from('tournaments')
       .select()
       .order('created_at', { ascending: false })
     if (!error && data) setTournaments(data as Tournament[])
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
 
   useEffect(() => {
     void load()
+    const interval = setInterval(() => void load(true), 10000)
+    return () => clearInterval(interval)
   }, [])
 
   async function handleCreate(e: FormEvent) {

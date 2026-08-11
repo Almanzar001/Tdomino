@@ -18,6 +18,7 @@ export default function TournamentDetail() {
   const [games, setGames] = useState<Game[]>([])
   const [leaderboard, setLeaderboard] = useState<TournamentLeaderboardRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dangerBusy, setDangerBusy] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'reset' | 'delete' | null>(null)
@@ -64,9 +65,10 @@ export default function TournamentDetail() {
     setPaseadorId('')
   }
 
-  async function loadAll() {
+  async function loadAll(silent = false) {
     if (!id) return
-    setLoading(true)
+    if (!silent) setLoading(true)
+    setRefreshing(true)
     const [tournamentRes, playersRes, rosterRes, gamesRes, leaderboardRes] = await Promise.all([
       insforge.database.from('tournaments').select().eq('id', id).maybeSingle(),
       insforge.database.from('players').select().order('name', { ascending: true }),
@@ -85,11 +87,14 @@ export default function TournamentDetail() {
     if (rosterRes.data) setRoster(rosterRes.data as TournamentPlayer[])
     if (gamesRes.data) setGames(gamesRes.data as Game[])
     if (leaderboardRes.data) setLeaderboard(leaderboardRes.data as TournamentLeaderboardRow[])
-    setLoading(false)
+    if (!silent) setLoading(false)
+    setRefreshing(false)
   }
 
   useEffect(() => {
     void loadAll()
+    const interval = setInterval(() => void loadAll(true), 10000)
+    return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -342,6 +347,15 @@ export default function TournamentDetail() {
         <span className={`badge ${tournament.status}`}>
           {tournament.status === 'active' ? 'En vivo' : 'Finalizado'}
         </span>
+        <button
+          type="button"
+          className="refresh-btn"
+          onClick={() => void loadAll()}
+          disabled={refreshing}
+          title="Actualizar"
+        >
+          <span className={refreshing ? 'spin' : ''}>🔄</span>
+        </button>
       </div>
 
       {user && (
