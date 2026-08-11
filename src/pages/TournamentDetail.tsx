@@ -20,6 +20,7 @@ export default function TournamentDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dangerBusy, setDangerBusy] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<'reset' | 'delete' | null>(null)
 
   const [newPlayerName, setNewPlayerName] = useState('')
   const [newPlayerFile, setNewPlayerFile] = useState<File | null>(null)
@@ -295,15 +296,8 @@ export default function TournamentDetail() {
     if (!error) void loadAll()
   }
 
-  async function handleResetGames() {
-    if (!id || !tournament) return
-    if (
-      !window.confirm(
-        `Esto borrará todas las partidas de "${tournament.name}" y pondrá la tabla de posiciones en cero. Los jugadores inscritos se mantienen. ¿Continuar?`
-      )
-    ) {
-      return
-    }
+  async function confirmResetGames() {
+    if (!id) return
     setDangerBusy(true)
     setError(null)
     const { error } = await insforge.database.from('games').delete().eq('tournament_id', id)
@@ -312,18 +306,12 @@ export default function TournamentDetail() {
       setError(error.message)
       return
     }
+    setConfirmAction(null)
     void loadAll()
   }
 
-  async function handleDeleteTournament() {
-    if (!id || !tournament) return
-    if (
-      !window.confirm(
-        `Esto eliminará el torneo "${tournament.name}" por completo, junto con sus jugadores inscritos y todas sus partidas. Esta acción no se puede deshacer. ¿Continuar?`
-      )
-    ) {
-      return
-    }
+  async function confirmDeleteTournament() {
+    if (!id) return
     setDangerBusy(true)
     setError(null)
     const { error } = await insforge.database.from('tournaments').delete().eq('id', id)
@@ -332,6 +320,7 @@ export default function TournamentDetail() {
       setError(error.message)
       return
     }
+    setConfirmAction(null)
     navigate('/')
   }
 
@@ -362,12 +351,42 @@ export default function TournamentDetail() {
           ) : (
             <button onClick={handleReopen} className="secondary">Reabrir torneo</button>
           )}
-          <button onClick={handleResetGames} className="secondary danger" disabled={dangerBusy}>
+          <button onClick={() => setConfirmAction('reset')} className="secondary danger" disabled={dangerBusy}>
             Reiniciar partidas
           </button>
-          <button onClick={handleDeleteTournament} className="secondary danger" disabled={dangerBusy}>
+          <button onClick={() => setConfirmAction('delete')} className="secondary danger" disabled={dangerBusy}>
             Eliminar torneo
           </button>
+        </div>
+      )}
+
+      {confirmAction && (
+        <div className="modal-overlay" onClick={() => !dangerBusy && setConfirmAction(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{confirmAction === 'delete' ? 'Eliminar torneo' : 'Reiniciar partidas'}</h2>
+              <button type="button" className="modal-close" onClick={() => setConfirmAction(null)} disabled={dangerBusy}>✕</button>
+            </div>
+            <p className="muted">
+              {confirmAction === 'delete'
+                ? `Esto eliminará el torneo "${tournament.name}" por completo, junto con sus jugadores inscritos y todas sus partidas. Esta acción no se puede deshacer.`
+                : `Esto borrará todas las partidas de "${tournament.name}" y pondrá la tabla de posiciones en cero. Los jugadores inscritos se mantienen.`}
+            </p>
+            {error && <p className="auth-error">{error}</p>}
+            <div className="modal-confirm-actions">
+              <button type="button" className="secondary" onClick={() => setConfirmAction(null)} disabled={dangerBusy}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="danger-solid"
+                onClick={confirmAction === 'delete' ? confirmDeleteTournament : confirmResetGames}
+                disabled={dangerBusy}
+              >
+                {dangerBusy ? 'Procesando…' : 'Sí, continuar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

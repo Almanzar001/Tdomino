@@ -159,6 +159,23 @@ button.secondary.danger:hover:not(:disabled) {
   background: rgba(255, 91, 91, 0.12);
 }
 
+button.danger-solid {
+  background: var(--danger);
+  color: #fff;
+  box-shadow: 0 4px 14px -6px rgba(255, 91, 91, 0.55);
+}
+
+button.danger-solid:hover:not(:disabled) {
+  background: var(--danger);
+  opacity: 0.9;
+}
+
+.modal-confirm-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1.2rem;
+}
+
 .secondary-link {
   display: inline-flex;
   align-items: center;
