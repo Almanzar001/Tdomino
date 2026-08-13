@@ -16,16 +16,22 @@ export interface LeaderboardRow {
 export default function LeaderboardTable({
   rows,
   emptyMessage = 'Aún no hay partidas registradas.',
+  rankOffset = 0,
+  compact = false,
 }: {
   rows: LeaderboardRow[]
   emptyMessage?: string
+  /** Rank of the first row, e.g. 10 when this table continues after a top-10 table. */
+  rankOffset?: number
+  /** Smaller avatars, no medal styling — for a secondary "everyone else" table. */
+  compact?: boolean
 }) {
   if (rows.length === 0) {
     return <p className="empty-state">{emptyMessage}</p>
   }
 
   return (
-    <div className="table-wrap">
+    <div className={`table-wrap ${compact ? 'table-compact' : ''}`}>
       <table>
         <thead>
           <tr>
@@ -38,23 +44,32 @@ export default function LeaderboardTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
-            <tr key={r.player_id} className={i === 0 && r.points > 0 ? 'leader-row' : ''}>
-              <td className="rank-cell">{MEDALS[i] ?? i + 1}</td>
-              <td>
-                <span className="name-cell">
-                  <span className={`avatar-slot ${RANK_CLASS[i] ?? ''}`}>
-                    <PlayerAvatar name={r.player_name} url={r.player_avatar_url} size={i < 3 ? 72 : 52} />
+          {rows.map((r, i) => {
+            const rank = rankOffset + i + 1
+            const medal = !compact ? MEDALS[rank - 1] : undefined
+            const rankClass = !compact ? RANK_CLASS[rank - 1] : undefined
+            return (
+              <tr key={r.player_id} className={rank === 1 && r.points > 0 ? 'leader-row' : ''}>
+                <td className="rank-cell">{medal ?? rank}</td>
+                <td>
+                  <span className="name-cell">
+                    <span className={`avatar-slot ${rankClass ?? ''}`}>
+                      <PlayerAvatar
+                        name={r.player_name}
+                        url={r.player_avatar_url}
+                        size={compact ? 30 : rank <= 3 ? 72 : 52}
+                      />
+                    </span>
+                    {r.player_name}
                   </span>
-                  {r.player_name}
-                </span>
-              </td>
-              <td>{r.wins}</td>
-              <td><strong>{r.paseos}</strong></td>
-              <td>{r.losses}</td>
-              <td className="points-col">{r.points}</td>
-            </tr>
-          ))}
+                </td>
+                <td>{r.wins}</td>
+                <td><strong>{r.paseos}</strong></td>
+                <td>{r.losses}</td>
+                <td className="points-col">{r.points}</td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

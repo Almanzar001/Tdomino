@@ -5,6 +5,7 @@ import type { Tournament } from '../types'
 
 const ALL = 'all'
 const POLL_MS = 10000
+const TOP_N = 10
 
 export default function GlobalLeaderboard() {
   const [tournaments, setTournaments] = useState<Tournament[]>([])
@@ -12,6 +13,7 @@ export default function GlobalLeaderboard() {
   const [rows, setRows] = useState<LeaderboardRow[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [topView, setTopView] = useState(false)
   const selectedRef = useRef(selected)
   selectedRef.current = selected
 
@@ -64,10 +66,27 @@ export default function GlobalLeaderboard() {
     return () => clearInterval(interval)
   }, [loadTournaments, loadRows])
 
+  const emptyMessage =
+    selected === ALL
+      ? 'Aún no hay partidas registradas.'
+      : 'Aún no hay partidas registradas en este torneo.'
+  const topRows = rows.slice(0, TOP_N)
+  const restRows = rows.slice(TOP_N)
+
   return (
     <div className="page">
       <div className="page-header">
         <h1>🏆 Tabla de líderes</h1>
+        {rows.length > TOP_N && (
+          <button
+            type="button"
+            className={`refresh-btn ${topView ? 'active' : ''}`}
+            onClick={() => setTopView((v) => !v)}
+            title={topView ? 'Ver tabla completa' : 'Ver Top 10'}
+          >
+            {topView ? '📋' : '🔟'}
+          </button>
+        )}
         <button
           type="button"
           className="refresh-btn"
@@ -102,15 +121,20 @@ export default function GlobalLeaderboard() {
 
       {loading ? (
         <p className="muted">Cargando…</p>
+      ) : topView ? (
+        <div className="top10-layout">
+          <div className="top10-main">
+            <LeaderboardTable rows={topRows} emptyMessage={emptyMessage} />
+          </div>
+          {restRows.length > 0 && (
+            <div className="top10-side">
+              <h2>El resto</h2>
+              <LeaderboardTable rows={restRows} rankOffset={TOP_N} compact />
+            </div>
+          )}
+        </div>
       ) : (
-        <LeaderboardTable
-          rows={rows}
-          emptyMessage={
-            selected === ALL
-              ? 'Aún no hay partidas registradas.'
-              : 'Aún no hay partidas registradas en este torneo.'
-          }
-        />
+        <LeaderboardTable rows={rows} emptyMessage={emptyMessage} />
       )}
     </div>
   )
