@@ -7,7 +7,7 @@ import type { Tournament } from '../types'
 
 const ALL = 'all'
 const POLL_MS = 10000
-const TOP_N = 10
+const TOP_N = 8
 
 export default function GlobalLeaderboard() {
   const { user } = useAuth()
@@ -129,9 +129,9 @@ export default function GlobalLeaderboard() {
             type="button"
             className={`refresh-btn ${topView ? 'active' : ''}`}
             onClick={() => setTopView((v) => !v)}
-            title={topView ? 'Ver tabla completa' : 'Ver Top 10'}
+            title={topView ? 'Ver tabla completa' : 'Ver Top 8'}
           >
-            {topView ? '📋' : '🔟'}
+            {topView ? '📋' : '8️⃣'}
           </button>
         )}
         {debts.length > 0 && (
@@ -199,7 +199,6 @@ export default function GlobalLeaderboard() {
           </div>
           {topView && restRows.length > 0 && (
             <div className="top10-side">
-              <h2>El resto</h2>
               <LeaderboardTable rows={restRows} rankOffset={TOP_N} compact />
             </div>
           )}
