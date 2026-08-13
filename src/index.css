@@ -1110,3 +1110,171 @@ th.points-col {
     font-size: 0.85rem;
   }
 }
+
+.roulette-link {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff;
+  border: none;
+}
+
+.roulette-link:hover {
+  opacity: 0.92;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+
+.roulette-setup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.table-count-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.table-count-field input {
+  width: 100px;
+}
+
+.roulette-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  text-align: center;
+}
+
+.roulette-mesa-heading {
+  width: 100%;
+}
+
+.roulette-mesa-heading h2 {
+  justify-content: center;
+}
+
+.roulette-mesa-heading .chip-list {
+  justify-content: center;
+}
+
+.chip-empty {
+  background: var(--surface-2);
+  color: var(--text);
+  opacity: 0.5;
+  width: 24px;
+  height: 24px;
+  justify-content: center;
+  padding: 0.3em;
+}
+
+.roulette-wheel-wrap {
+  position: relative;
+  width: min(88vw, 340px);
+  aspect-ratio: 1;
+}
+
+.roulette-wheel {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.35));
+  display: block;
+}
+
+.roulette-label {
+  fill: #0a0a0f;
+  font-size: 14px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.roulette-pointer {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-top: 22px solid var(--live);
+  z-index: 3;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+
+.roulette-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 3px solid var(--bg);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  z-index: 2;
+}
+
+.roulette-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.roulette-spin-btn {
+  font-size: 1.15rem;
+  padding: 0.75em 2.2em;
+}
+
+.roulette-winner-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1.5px solid var(--gold);
+  border-radius: 999px;
+  padding: 0.5em 1.2em 0.5em 0.5em;
+  font-size: 1rem;
+  box-shadow: var(--shadow);
+  animation: winner-pop 0.4s ease;
+}
+
+@keyframes winner-pop {
+  from { transform: scale(0.85); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.table-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.1rem;
+  box-shadow: var(--shadow);
+}
+
+.table-card h3 {
+  margin: 0 0 0.6rem;
+  color: var(--text-h);
+  font-size: 1rem;
+}

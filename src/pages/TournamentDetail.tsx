@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { insforge } from '../lib/insforge'
 import { useAuth } from '../context/AuthContext'
 import { uploadPlayerPhoto } from '../lib/uploadPlayerPhoto'
@@ -373,6 +373,12 @@ export default function TournamentDetail() {
         >
           <span className={refreshing ? 'spin' : ''}>🔄</span>
         </button>
+      </div>
+
+      <div className="actions-row">
+        <Link to={`/torneos/${id}/ruleta`} className="secondary-link roulette-link">
+          🎡 Ruleta de mesas
+        </Link>
       </div>
 
       {user && (
