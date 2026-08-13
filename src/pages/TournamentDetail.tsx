@@ -451,10 +451,20 @@ export default function TournamentDetail() {
 
     const tableIds = tables.map((t) => t.id)
     if (tableIds.length > 0) {
-      await insforge.database.from('litros').delete().in('table_id', tableIds)
-      await insforge.database.from('litros').insert(
+      const { error: litroDeleteError } = await insforge.database.from('litros').delete().in('table_id', tableIds)
+      if (litroDeleteError) {
+        setDangerBusy(false)
+        setError(litroDeleteError.message)
+        return
+      }
+      const { error: litroInsertError } = await insforge.database.from('litros').insert(
         tableIds.map((tableId) => ({ table_id: tableId, litro_number: 1, hands_played: 0, is_open: true }))
       )
+      if (litroInsertError) {
+        setDangerBusy(false)
+        setError(litroInsertError.message)
+        return
+      }
     }
 
     setDangerBusy(false)
