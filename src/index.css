@@ -883,6 +883,21 @@ tbody tr:hover {
   font-size: 1.02rem;
 }
 
+.stat-wins {
+  color: var(--success);
+  font-weight: 800;
+}
+
+.stat-paseos {
+  color: var(--gold);
+  font-weight: 800;
+}
+
+.stat-losses {
+  color: var(--danger);
+  font-weight: 800;
+}
+
 th.points-col {
   color: var(--accent);
 }

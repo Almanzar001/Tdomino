@@ -63,9 +63,9 @@ export default function LeaderboardTable({
                     {r.player_name}
                   </span>
                 </td>
-                <td>{r.wins}</td>
-                <td><strong>{r.paseos}</strong></td>
-                <td>{r.losses}</td>
+                <td className="stat-wins">{r.wins}</td>
+                <td className="stat-paseos">{r.paseos}</td>
+                <td className="stat-losses">{r.losses}</td>
                 <td className="points-col">{r.points}</td>
               </tr>
             )
