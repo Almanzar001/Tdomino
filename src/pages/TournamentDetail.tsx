@@ -6,7 +6,19 @@ import { uploadPlayerPhoto } from '../lib/uploadPlayerPhoto'
 import PlayerAvatar from '../components/PlayerAvatar'
 import LeaderboardTable from '../components/LeaderboardTable'
 import ChampionsCelebration from '../components/ChampionsCelebration'
-import { GAME_POINTS, type Game, type Player, type Tournament, type TournamentLeaderboardRow, type TournamentPlayer } from '../types'
+import {
+  GAME_POINTS,
+  PESO_PER_HAND,
+  type Game,
+  type LitroDebtRow,
+  type LitroRow,
+  type Player,
+  type TablePlayer,
+  type TableRow,
+  type Tournament,
+  type TournamentLeaderboardRow,
+  type TournamentPlayer,
+} from '../types'
 
 export default function TournamentDetail() {
   const { id } = useParams<{ id: string }>()
@@ -18,6 +30,11 @@ export default function TournamentDetail() {
   const [roster, setRoster] = useState<TournamentPlayer[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [leaderboard, setLeaderboard] = useState<TournamentLeaderboardRow[]>([])
+  const [tables, setTables] = useState<TableRow[]>([])
+  const [tablePlayers, setTablePlayers] = useState<TablePlayer[]>([])
+  const [openLitros, setOpenLitros] = useState<LitroRow[]>([])
+  const [litroDebts, setLitroDebts] = useState<LitroDebtRow[]>([])
+  const [selectedTableId, setSelectedTableId] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -65,13 +82,14 @@ export default function TournamentDetail() {
     setWinnerId('')
     setLoserId('')
     setPaseadorId('')
+    setSelectedTableId('')
   }
 
   async function loadAll(silent = false) {
     if (!id) return
     if (!silent) setLoading(true)
     setRefreshing(true)
-    const [tournamentRes, playersRes, rosterRes, gamesRes, leaderboardRes] = await Promise.all([
+    const [tournamentRes, playersRes, rosterRes, gamesRes, leaderboardRes, tablesRes, debtsRes] = await Promise.all([
       insforge.database.from('tournaments').select().eq('id', id).maybeSingle(),
       insforge.database.from('players').select().order('name', { ascending: true }),
       insforge.database.from('tournament_players').select().eq('tournament_id', id),
@@ -82,6 +100,8 @@ export default function TournamentDetail() {
         .eq('tournament_id', id)
         .order('points', { ascending: false })
         .order('paseos', { ascending: false }),
+      insforge.database.from('tables').select().eq('tournament_id', id).order('table_number', { ascending: true }),
+      insforge.database.from('litro_debts').select().eq('tournament_id', id),
     ])
 
     if (tournamentRes.data) setTournament(tournamentRes.data as Tournament)
@@ -89,6 +109,23 @@ export default function TournamentDetail() {
     if (rosterRes.data) setRoster(rosterRes.data as TournamentPlayer[])
     if (gamesRes.data) setGames(gamesRes.data as Game[])
     if (leaderboardRes.data) setLeaderboard(leaderboardRes.data as TournamentLeaderboardRow[])
+    if (debtsRes.data) setLitroDebts(debtsRes.data as LitroDebtRow[])
+
+    const tablesData = (tablesRes.data ?? []) as TableRow[]
+    setTables(tablesData)
+    const tableIds = tablesData.map((t) => t.id)
+    if (tableIds.length > 0) {
+      const [tpRes, litroRes] = await Promise.all([
+        insforge.database.from('table_players').select().in('table_id', tableIds),
+        insforge.database.from('litros').select().in('table_id', tableIds).eq('is_open', true),
+      ])
+      if (tpRes.data) setTablePlayers(tpRes.data as TablePlayer[])
+      if (litroRes.data) setOpenLitros(litroRes.data as LitroRow[])
+    } else {
+      setTablePlayers([])
+      setOpenLitros([])
+    }
+
     if (!silent) setLoading(false)
     setRefreshing(false)
   }
@@ -105,6 +142,12 @@ export default function TournamentDetail() {
     .filter((p): p is Player => Boolean(p))
 
   const playersNotInRoster = allPlayers.filter((p) => !roster.some((rp) => rp.player_id === p.id))
+
+  const playersForGame = selectedTableId
+    ? rosterPlayers.filter((p) =>
+        tablePlayers.some((tp) => tp.table_id === selectedTableId && tp.player_id === p.id)
+      )
+    : rosterPlayers
 
   function playerName(playerId: string) {
     return allPlayers.find((p) => p.id === playerId)?.name ?? '—'
@@ -285,12 +328,28 @@ export default function TournamentDetail() {
       return
     }
     setGameBusy(true)
+
+    let tableId: string | null = null
+    let litroId: string | null = null
+    if (selectedTableId) {
+      tableId = selectedTableId
+      const { data: freshLitro } = await insforge.database
+        .from('litros')
+        .select()
+        .eq('table_id', selectedTableId)
+        .eq('is_open', true)
+        .maybeSingle()
+      litroId = (freshLitro as LitroRow | null)?.id ?? null
+    }
+
     const { error } = await insforge.database.from('games').insert([
       {
         tournament_id: id,
         winner_id: winnerId,
         loser_id: loserId,
         paseador_id: paseadorId,
+        table_id: tableId,
+        litro_id: litroId,
       },
     ])
     setGameBusy(false)
@@ -450,6 +509,40 @@ export default function TournamentDetail() {
         <LeaderboardTable rows={leaderboard} emptyMessage="Aún no hay partidas registradas en este torneo." />
       </section>
 
+      {tables.length > 0 && (
+        <section className="section">
+          <h2>💰 Litros y pagos pendientes</h2>
+          <div className="table-cards">
+            {tables.map((t) => {
+              const litro = openLitros.find((l) => l.table_id === t.id)
+              const debts = litroDebts.filter((d) => d.table_id === t.id)
+              return (
+                <div key={t.id} className="table-card">
+                  <h3>Mesa {t.table_number}</h3>
+                  <p className="muted">
+                    {litro
+                      ? `Litro ${litro.litro_number} · ${litro.hands_played}/${t.hands_per_litro} manos`
+                      : 'Sin litro abierto'}
+                  </p>
+                  {debts.length === 0 ? (
+                    <p className="muted">Sin pagos pendientes.</p>
+                  ) : (
+                    <ul className="chip-list">
+                      {debts.map((d) => (
+                        <li key={d.player_id} className="chip">
+                          <PlayerAvatar name={d.player_name} url={d.player_avatar_url} size={24} />
+                          {d.player_name} — {d.losses} × ${PESO_PER_HAND} = ${d.losses * PESO_PER_HAND}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       <section className="section">
         <h2>Jugadores del torneo</h2>
         {rosterPlayers.length === 0 ? (
@@ -548,11 +641,30 @@ export default function TournamentDetail() {
               <button type="button" className="modal-close" onClick={closeGameModal}>✕</button>
             </div>
             <form onSubmit={handleRegisterGame} className="game-form">
+              {tables.length > 0 && (
+                <label>
+                  Mesa
+                  <select
+                    value={selectedTableId}
+                    onChange={(e) => {
+                      setSelectedTableId(e.target.value)
+                      setWinnerId('')
+                      setLoserId('')
+                      setPaseadorId('')
+                    }}
+                  >
+                    <option value="">Todos los jugadores del torneo</option>
+                    {tables.map((t) => (
+                      <option key={t.id} value={t.id}>Mesa {t.table_number}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label>
                 Ganador
                 <select value={winnerId} onChange={(e) => handleWinnerChange(e.target.value)}>
                   <option value="">Selecciona…</option>
-                  {rosterPlayers
+                  {playersForGame
                     .filter((p) => p.id !== loserId && p.id !== paseadorId)
                     .map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
@@ -563,7 +675,7 @@ export default function TournamentDetail() {
                 Perdedor
                 <select value={loserId} onChange={(e) => handleLoserChange(e.target.value)}>
                   <option value="">Selecciona…</option>
-                  {rosterPlayers
+                  {playersForGame
                     .filter((p) => p.id !== winnerId && p.id !== paseadorId)
                     .map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
@@ -574,21 +686,38 @@ export default function TournamentDetail() {
                 Pasea
                 <select value={paseadorId} onChange={(e) => handlePaseadorChange(e.target.value)}>
                   <option value="">Selecciona…</option>
-                  {rosterPlayers
+                  {playersForGame
                     .filter((p) => p.id !== winnerId && p.id !== loserId)
                     .map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                 </select>
               </label>
+              {selectedTableId && (
+                <p className="muted">
+                  {(() => {
+                    const litro = openLitros.find((l) => l.table_id === selectedTableId)
+                    const table = tables.find((t) => t.id === selectedTableId)
+                    return litro && table
+                      ? `Litro ${litro.litro_number} · ${litro.hands_played}/${table.hands_per_litro} manos`
+                      : 'Esta mesa no tiene un litro abierto todavía.'
+                  })()}
+                </p>
+              )}
               <p className="muted points-rule">
                 🏆 Ganador +{GAME_POINTS.win} · 🚶 Pasea +{GAME_POINTS.paseo} · ✕ Perdedor +{GAME_POINTS.loss}
               </p>
               {gameError && <p className="auth-error">{gameError}</p>}
-              <button type="submit" disabled={gameBusy || rosterPlayers.length < 3}>
+              <button type="submit" disabled={gameBusy || playersForGame.length < 3}>
                 {gameBusy ? 'Guardando…' : '🁫 Registrar partida'}
               </button>
-              {rosterPlayers.length < 3 && <p className="muted">Se necesitan al menos 3 jugadores inscritos.</p>}
+              {playersForGame.length < 3 && (
+                <p className="muted">
+                  {selectedTableId
+                    ? 'Esta mesa tiene menos de 3 jugadores asignados.'
+                    : 'Se necesitan al menos 3 jugadores inscritos.'}
+                </p>
+              )}
             </form>
           </div>
         </div>

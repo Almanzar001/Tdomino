@@ -5,6 +5,7 @@ import PlayerAvatar from '../components/PlayerAvatar'
 import type { Player, Tournament, TournamentPlayer } from '../types'
 
 const DEFAULT_TABLE_CAPACITY = 3
+const DEFAULT_HANDS_PER_LITRO = 10
 const SPIN_DURATION_MS = 3600
 const EXTRA_SPINS = 5
 const COLORS = ['#8a3ffc', '#ff6fb5', '#2fd980', '#ffcf5c', '#4fb8ff', '#ff5b5b', '#b891ff', '#ff9f4a']
@@ -36,12 +37,15 @@ export default function TournamentRoulette() {
 
   const [phase, setPhase] = useState<'setup' | 'drawing' | 'done'>('setup')
   const [tableCount, setTableCount] = useState(2)
+  const [handsPerLitro, setHandsPerLitro] = useState(DEFAULT_HANDS_PER_LITRO)
   const [tables, setTables] = useState<Player[][]>([])
   const [remaining, setRemaining] = useState<Player[]>([])
   const [currentTableIndex, setCurrentTableIndex] = useState(0)
   const [rotation, setRotation] = useState(0)
   const [spinning, setSpinning] = useState(false)
   const [lastWinner, setLastWinner] = useState<{ player: Player; table: number } | null>(null)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -90,6 +94,51 @@ export default function TournamentRoulette() {
     setRemaining([])
     setCurrentTableIndex(0)
     setLastWinner(null)
+    setSaveState('idle')
+    setSaveError(null)
+  }
+
+  async function persistTables() {
+    if (!id) return
+    const nonEmptyTables = tables
+      .map((players, i) => ({ players, number: i + 1 }))
+      .filter((t) => t.players.length > 0)
+    if (nonEmptyTables.length === 0) return
+
+    setSaveState('saving')
+    setSaveError(null)
+    try {
+      // Best-effort cleanup of a previous draw for this tournament — this
+      // can fail if games already reference the old tables (FK restrict),
+      // which is fine: we just keep the old rows and add the new ones.
+      await insforge.database.from('tables').delete().eq('tournament_id', id)
+
+      for (const t of nonEmptyTables) {
+        const { data: tableData, error: tableError } = await insforge.database
+          .from('tables')
+          .insert([{ tournament_id: id, table_number: t.number, hands_per_litro: handsPerLitro }])
+          .select()
+        if (tableError || !tableData?.[0]) {
+          throw new Error(tableError?.message ?? 'No se pudo crear la mesa')
+        }
+        const tableId = tableData[0].id as string
+
+        const { error: playersError } = await insforge.database
+          .from('table_players')
+          .insert(t.players.map((p) => ({ table_id: tableId, player_id: p.id })))
+        if (playersError) throw new Error(playersError.message)
+
+        const { error: litroError } = await insforge.database
+          .from('litros')
+          .insert([{ table_id: tableId, litro_number: 1, hands_played: 0, is_open: true }])
+        if (litroError) throw new Error(litroError.message)
+      }
+
+      setSaveState('saved')
+    } catch (err) {
+      setSaveState('error')
+      setSaveError(err instanceof Error ? err.message : 'Error al guardar las mesas')
+    }
   }
 
   function spin() {
@@ -128,6 +177,12 @@ export default function TournamentRoulette() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tables, remaining])
 
+  useEffect(() => {
+    if (phase !== 'done') return
+    void persistTables()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
+
   if (loading) return <div className="page"><p className="muted">Cargando…</p></div>
   if (!tournament) return <div className="page"><p className="muted">Torneo no encontrado.</p></div>
 
@@ -165,6 +220,16 @@ export default function TournamentRoulette() {
                   max={20}
                   value={tableCount}
                   onChange={(e) => setTableCount(Math.max(1, Number(e.target.value) || 1))}
+                />
+              </label>
+              <label className="table-count-field">
+                ¿Cuántas manos por litro?
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={handsPerLitro}
+                  onChange={(e) => setHandsPerLitro(Math.max(1, Number(e.target.value) || 1))}
                 />
               </label>
               <p className="muted">
@@ -290,6 +355,20 @@ export default function TournamentRoulette() {
       {phase === 'done' && (
         <section className="section">
           <h2>🏆 Mesas listas</h2>
+          {saveState === 'saving' && <p className="muted">Guardando mesas…</p>}
+          {saveState === 'saved' && (
+            <p className="muted">
+              ✅ Mesas guardadas — {handsPerLitro} manos por litro. Los pagos pendientes se reinician solos cada vez que una mesa completa su litro.
+            </p>
+          )}
+          {saveState === 'error' && (
+            <div>
+              <p className="auth-error">
+                No se pudieron guardar las mesas{saveError ? `: ${saveError}` : ''}.
+              </p>
+              <button type="button" className="secondary" onClick={() => void persistTables()}>Reintentar</button>
+            </div>
+          )}
           <div className="table-cards">
             {tables.map((t, i) => (
               <div key={i} className="table-card">
