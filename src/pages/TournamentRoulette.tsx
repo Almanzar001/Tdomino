@@ -4,7 +4,7 @@ import { insforge } from '../lib/insforge'
 import PlayerAvatar from '../components/PlayerAvatar'
 import type { Player, Tournament, TournamentPlayer } from '../types'
 
-const TABLE_CAPACITY = 3
+const DEFAULT_TABLE_CAPACITY = 3
 const SPIN_DURATION_MS = 3600
 const EXTRA_SPINS = 5
 const COLORS = ['#8a3ffc', '#ff6fb5', '#2fd980', '#ffcf5c', '#4fb8ff', '#ff5b5b', '#b891ff', '#ff9f4a']
@@ -59,7 +59,7 @@ export default function TournamentRoulette() {
         .map((rp) => players.find((p) => p.id === rp.player_id))
         .filter((p): p is Player => Boolean(p))
       setRosterPlayers(inRoster)
-      setTableCount(Math.max(1, Math.ceil(inRoster.length / TABLE_CAPACITY)) || 1)
+      setTableCount(Math.max(1, Math.ceil(inRoster.length / DEFAULT_TABLE_CAPACITY)) || 1)
       setLoading(false)
     }
     void load()
@@ -124,11 +124,6 @@ export default function TournamentRoulette() {
     if (phase !== 'drawing') return
     if (remaining.length === 0 && tables.some((t) => t.length > 0)) {
       setPhase('done')
-      return
-    }
-    const table = tables[currentTableIndex]
-    if (table && table.length >= TABLE_CAPACITY && currentTableIndex < tableCount - 1) {
-      setCurrentTableIndex((i) => i + 1)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tables, remaining])
@@ -160,7 +155,7 @@ export default function TournamentRoulette() {
             <>
               <p className="muted">
                 {rosterPlayers.length} jugador{rosterPlayers.length === 1 ? '' : 'es'} inscrito
-                {rosterPlayers.length === 1 ? '' : 's'} · {TABLE_CAPACITY} por mesa
+                {rosterPlayers.length === 1 ? '' : 's'}
               </p>
               <label className="table-count-field">
                 ¿Cuántas mesas?
@@ -172,6 +167,9 @@ export default function TournamentRoulette() {
                   onChange={(e) => setTableCount(Math.max(1, Number(e.target.value) || 1))}
                 />
               </label>
+              <p className="muted">
+                Tú decides cuántos jugadores van en cada mesa — usa "Completar mesa y seguir" cuando quieras pasar a la siguiente.
+              </p>
               <button type="button" onClick={startDraw}>🎡 Empezar sorteo</button>
             </>
           )}
@@ -183,19 +181,18 @@ export default function TournamentRoulette() {
           {phase === 'drawing' && (
             <div className="roulette-mesa-heading">
               <h2>Mesa {currentTableIndex + 1} de {tableCount}</h2>
-              <div className="chip-list">
-                {tables[currentTableIndex]?.map((p) => (
-                  <span key={p.id} className="chip">
-                    <PlayerAvatar name={p.name} url={p.avatar_url} size={24} />
-                    {p.name}
-                  </span>
-                ))}
-                {Array.from({ length: Math.max(0, TABLE_CAPACITY - (tables[currentTableIndex]?.length ?? 0)) }).map(
-                  (_, i) => (
-                    <span key={i} className="chip chip-empty">?</span>
-                  )
-                )}
-              </div>
+              {tables[currentTableIndex]?.length ? (
+                <div className="chip-list">
+                  {tables[currentTableIndex].map((p) => (
+                    <span key={p.id} className="chip">
+                      <PlayerAvatar name={p.name} url={p.avatar_url} size={24} />
+                      {p.name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">Sin jugadores todavía.</p>
+              )}
             </div>
           )}
 
