@@ -59,10 +59,6 @@ export interface LitroDebtRow {
   tournament_id: string
   table_id: string
   table_number: number
-  litro_id: string
-  litro_number: number
-  hands_played: number
-  hands_per_litro: number
   player_id: string
   player_name: string
   player_avatar_url: string | null

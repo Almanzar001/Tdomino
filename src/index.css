@@ -1370,6 +1370,13 @@ th.points-col {
   box-shadow: 0 0 0 2px var(--accent-bg), var(--shadow);
 }
 
+.mesa-debts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
 .roulette-live-tables {
   width: 100%;
   margin-top: 0.5rem;

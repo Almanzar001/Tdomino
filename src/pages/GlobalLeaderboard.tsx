@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { insforge } from '../lib/insforge'
+import { useAuth } from '../context/AuthContext'
 import LeaderboardTable, { type LeaderboardRow } from '../components/LeaderboardTable'
 import MesaDebtsPanel, { type MesaDebtGroup } from '../components/MesaDebtsPanel'
 import type { LitroDebtRow, Tournament } from '../types'
@@ -9,6 +10,7 @@ const POLL_MS = 10000
 const TOP_N = 8
 
 export default function GlobalLeaderboard() {
+  const { user } = useAuth()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [selected, setSelected] = useState<string>(ALL)
   const [rows, setRows] = useState<LeaderboardRow[]>([])
@@ -17,6 +19,7 @@ export default function GlobalLeaderboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [topView, setTopView] = useState(false)
   const [showPayments, setShowPayments] = useState(false)
+  const [payBusyTableId, setPayBusyTableId] = useState<string | null>(null)
   const selectedRef = useRef(selected)
   selectedRef.current = selected
 
@@ -77,6 +80,18 @@ export default function GlobalLeaderboard() {
     }, POLL_MS)
     return () => clearInterval(interval)
   }, [loadTournaments, loadRows, loadLitroDebts])
+
+  async function handlePayMesa(tableId: string) {
+    setPayBusyTableId(tableId)
+    await insforge.database
+      .from('litros')
+      .update({ paid: true })
+      .eq('table_id', tableId)
+      .eq('is_open', false)
+      .eq('paid', false)
+    setPayBusyTableId(null)
+    void loadLitroDebts()
+  }
 
   const emptyMessage =
     selected === ALL
@@ -170,7 +185,12 @@ export default function GlobalLeaderboard() {
           {showPayments && mesaDebtGroups.length > 0 && (
             <div className="top10-payments">
               <h2>💰 Pagos pendientes</h2>
-              <MesaDebtsPanel groups={mesaDebtGroups} />
+              <MesaDebtsPanel
+                groups={mesaDebtGroups}
+                canManage={Boolean(user)}
+                busyTableId={payBusyTableId}
+                onPay={handlePayMesa}
+              />
             </div>
           )}
           <div className="top10-main">

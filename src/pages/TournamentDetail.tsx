@@ -35,6 +35,7 @@ export default function TournamentDetail() {
   const [openLitros, setOpenLitros] = useState<LitroRow[]>([])
   const [litroDebts, setLitroDebts] = useState<LitroDebtRow[]>([])
   const [selectedTableId, setSelectedTableId] = useState('')
+  const [payBusyTableId, setPayBusyTableId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -367,6 +368,22 @@ export default function TournamentDetail() {
     void loadAll()
   }
 
+  async function handlePayMesa(tableId: string) {
+    setPayBusyTableId(tableId)
+    const { error } = await insforge.database
+      .from('litros')
+      .update({ paid: true })
+      .eq('table_id', tableId)
+      .eq('is_open', false)
+      .eq('paid', false)
+    setPayBusyTableId(null)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    void loadAll()
+  }
+
   async function handleFinish() {
     if (!id) return
     const { error } = await insforge.database
@@ -518,7 +535,12 @@ export default function TournamentDetail() {
       {tables.length > 0 && (
         <section className="section">
           <h2>💰 Pagos pendientes</h2>
-          <MesaDebtsPanel groups={mesaDebtGroups} />
+          <MesaDebtsPanel
+            groups={mesaDebtGroups}
+            canManage={Boolean(user)}
+            busyTableId={payBusyTableId}
+            onPay={handlePayMesa}
+          />
         </section>
       )}
 

@@ -7,14 +7,36 @@ export interface MesaDebtGroup {
   debts: LitroDebtRow[]
 }
 
-export default function MesaDebtsPanel({ groups }: { groups: MesaDebtGroup[] }) {
+export default function MesaDebtsPanel({
+  groups,
+  canManage = false,
+  busyTableId = null,
+  onPay,
+}: {
+  groups: MesaDebtGroup[]
+  canManage?: boolean
+  busyTableId?: string | null
+  onPay?: (tableId: string) => void
+}) {
   if (groups.length === 0) return null
 
   return (
     <div className="table-cards">
       {groups.map((g) => (
         <div key={g.tableId} className="table-card">
-          <h3>{g.label}</h3>
+          <div className="mesa-debts-header">
+            <h3>{g.label}</h3>
+            {canManage && onPay && g.debts.length > 0 && (
+              <button
+                type="button"
+                className="loss-pay-btn"
+                onClick={() => onPay(g.tableId)}
+                disabled={busyTableId === g.tableId}
+              >
+                {busyTableId === g.tableId ? 'Pagando…' : 'Pagar'}
+              </button>
+            )}
+          </div>
           {g.debts.length === 0 ? (
             <p className="muted">Sin pagos pendientes.</p>
           ) : (
