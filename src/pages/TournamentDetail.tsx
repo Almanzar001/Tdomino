@@ -6,7 +6,7 @@ import { uploadPlayerPhoto } from '../lib/uploadPlayerPhoto'
 import PlayerAvatar from '../components/PlayerAvatar'
 import LeaderboardTable from '../components/LeaderboardTable'
 import ChampionsCelebration from '../components/ChampionsCelebration'
-import MesaDebtsPanel from '../components/MesaDebtsPanel'
+import MesaDebtsPanel, { type MesaDebtGroup } from '../components/MesaDebtsPanel'
 import {
   GAME_POINTS,
   type Game,
@@ -35,7 +35,8 @@ export default function TournamentDetail() {
   const [openLitros, setOpenLitros] = useState<LitroRow[]>([])
   const [litroDebts, setLitroDebts] = useState<LitroDebtRow[]>([])
   const [selectedTableId, setSelectedTableId] = useState('')
-  const [payBusyTableId, setPayBusyTableId] = useState<string | null>(null)
+  const [payBusyKey, setPayBusyKey] = useState<string | null>(null)
+  const [resetBusyTableId, setResetBusyTableId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -144,11 +145,17 @@ export default function TournamentDetail() {
 
   const playersNotInRoster = allPlayers.filter((p) => !roster.some((rp) => rp.player_id === p.id))
 
-  const mesaDebtGroups = tables.map((t) => ({
-    tableId: t.id,
-    label: `Mesa ${t.table_number}`,
-    debts: litroDebts.filter((d) => d.table_id === t.id),
-  }))
+  const mesaDebtGroups: MesaDebtGroup[] = tables.map((t) => {
+    const litro = openLitros.find((l) => l.table_id === t.id)
+    return {
+      tableId: t.id,
+      label: `Mesa ${t.table_number}`,
+      litro: litro
+        ? { litroNumber: litro.litro_number, handsPlayed: litro.hands_played, handsPerLitro: t.hands_per_litro }
+        : null,
+      debts: litroDebts.filter((d) => d.table_id === t.id),
+    }
+  })
 
   const playersForGame = selectedTableId
     ? rosterPlayers.filter((p) =>
@@ -368,19 +375,45 @@ export default function TournamentDetail() {
     void loadAll()
   }
 
-  async function handlePayMesa(tableId: string) {
-    setPayBusyTableId(tableId)
+  async function handlePayPlayer(tableId: string, playerId: string) {
+    setPayBusyKey(`${tableId}:${playerId}`)
     const { error } = await insforge.database
-      .from('litros')
+      .from('games')
       .update({ paid: true })
       .eq('table_id', tableId)
-      .eq('is_open', false)
+      .eq('loser_id', playerId)
       .eq('paid', false)
-    setPayBusyTableId(null)
+    setPayBusyKey(null)
     if (error) {
       setError(error.message)
       return
     }
+    void loadAll()
+  }
+
+  async function handleResetMesa(tableId: string) {
+    setResetBusyTableId(tableId)
+    const litro = openLitros.find((l) => l.table_id === tableId)
+    if (litro) {
+      const { error: closeError } = await insforge.database
+        .from('litros')
+        .update({ is_open: false, closed_at: new Date().toISOString() })
+        .eq('id', litro.id)
+      if (closeError) {
+        setResetBusyTableId(null)
+        setError(closeError.message)
+        return
+      }
+      const { error: openError } = await insforge.database
+        .from('litros')
+        .insert([{ table_id: tableId, litro_number: litro.litro_number + 1, hands_played: 0, is_open: true }])
+      if (openError) {
+        setResetBusyTableId(null)
+        setError(openError.message)
+        return
+      }
+    }
+    setResetBusyTableId(null)
     void loadAll()
   }
 
@@ -410,11 +443,21 @@ export default function TournamentDetail() {
     setDangerBusy(true)
     setError(null)
     const { error } = await insforge.database.from('games').delete().eq('tournament_id', id)
-    setDangerBusy(false)
     if (error) {
+      setDangerBusy(false)
       setError(error.message)
       return
     }
+
+    const tableIds = tables.map((t) => t.id)
+    if (tableIds.length > 0) {
+      await insforge.database.from('litros').delete().in('table_id', tableIds)
+      await insforge.database.from('litros').insert(
+        tableIds.map((tableId) => ({ table_id: tableId, litro_number: 1, hands_played: 0, is_open: true }))
+      )
+    }
+
+    setDangerBusy(false)
     setConfirmAction(null)
     void loadAll()
   }
@@ -507,7 +550,7 @@ export default function TournamentDetail() {
             <p className="muted">
               {confirmAction === 'delete'
                 ? `Esto eliminará el torneo "${tournament.name}" por completo, junto con sus jugadores inscritos y todas sus partidas. Esta acción no se puede deshacer.`
-                : `Esto borrará todas las partidas de "${tournament.name}" y pondrá la tabla de posiciones en cero. Los jugadores inscritos se mantienen.`}
+                : `Esto borrará todas las partidas de "${tournament.name}" y pondrá la tabla de posiciones en cero. También reinicia las manos y pagos pendientes de cada mesa. Los jugadores inscritos y las mesas se mantienen.`}
             </p>
             {error && <p className="auth-error">{error}</p>}
             <div className="modal-confirm-actions">
@@ -538,30 +581,11 @@ export default function TournamentDetail() {
           <MesaDebtsPanel
             groups={mesaDebtGroups}
             canManage={Boolean(user)}
-            busyTableId={payBusyTableId}
-            onPay={handlePayMesa}
+            payBusyKey={payBusyKey}
+            resetBusyTableId={resetBusyTableId}
+            onPayPlayer={handlePayPlayer}
+            onResetMesa={handleResetMesa}
           />
-        </section>
-      )}
-
-      {tables.length > 0 && (
-        <section className="section">
-          <h2>🎲 Manos jugadas por mesa</h2>
-          <div className="table-cards">
-            {tables.map((t) => {
-              const litro = openLitros.find((l) => l.table_id === t.id)
-              return (
-                <div key={t.id} className="table-card">
-                  <h3>Mesa {t.table_number}</h3>
-                  <p className="muted">
-                    {litro
-                      ? `Litro ${litro.litro_number} · ${litro.hands_played}/${t.hands_per_litro} manos`
-                      : 'Sin litro abierto'}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
         </section>
       )}
 

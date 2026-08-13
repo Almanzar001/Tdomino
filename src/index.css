@@ -1377,6 +1377,14 @@ th.points-col {
   gap: 0.6rem;
 }
 
+.mesa-debts-total {
+  margin: 0.4rem 0;
+}
+
+.mesa-debts-total strong {
+  color: var(--text-h);
+}
+
 .roulette-live-tables {
   width: 100%;
   margin-top: 0.5rem;

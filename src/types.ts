@@ -28,6 +28,7 @@ export interface Game {
   paseador_id: string
   table_id: string | null
   litro_id: string | null
+  paid: boolean
   played_at: string
   created_at: string
 }

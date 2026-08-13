@@ -3,7 +3,7 @@ import { insforge } from '../lib/insforge'
 import { useAuth } from '../context/AuthContext'
 import LeaderboardTable, { type LeaderboardRow } from '../components/LeaderboardTable'
 import MesaDebtsPanel, { type MesaDebtGroup } from '../components/MesaDebtsPanel'
-import type { LitroDebtRow, Tournament } from '../types'
+import type { LitroDebtRow, LitroRow, TableRow, Tournament } from '../types'
 
 const ALL = 'all'
 const POLL_MS = 10000
@@ -14,12 +14,15 @@ export default function GlobalLeaderboard() {
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [selected, setSelected] = useState<string>(ALL)
   const [rows, setRows] = useState<LeaderboardRow[]>([])
+  const [tables, setTables] = useState<TableRow[]>([])
+  const [openLitros, setOpenLitros] = useState<LitroRow[]>([])
   const [litroDebts, setLitroDebts] = useState<LitroDebtRow[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [topView, setTopView] = useState(false)
   const [showPayments, setShowPayments] = useState(false)
-  const [payBusyTableId, setPayBusyTableId] = useState<string | null>(null)
+  const [payBusyKey, setPayBusyKey] = useState<string | null>(null)
+  const [resetBusyTableId, setResetBusyTableId] = useState<string | null>(null)
   const selectedRef = useRef(selected)
   selectedRef.current = selected
 
@@ -32,11 +35,29 @@ export default function GlobalLeaderboard() {
     if (!error && data) setTournaments(data as Tournament[])
   }, [])
 
-  const loadLitroDebts = useCallback(async () => {
+  const loadMesaData = useCallback(async () => {
     const target = selectedRef.current
-    const query = insforge.database.from('litro_debts').select()
-    const { data, error } = target === ALL ? await query : await query.eq('tournament_id', target)
-    if (!error && data) setLitroDebts(data as LitroDebtRow[])
+
+    const debtsQuery = insforge.database.from('litro_debts').select()
+    const { data: debtsData } = target === ALL ? await debtsQuery : await debtsQuery.eq('tournament_id', target)
+    if (debtsData) setLitroDebts(debtsData as LitroDebtRow[])
+
+    const tablesQuery = insforge.database.from('tables').select()
+    const { data: tablesData } = target === ALL ? await tablesQuery : await tablesQuery.eq('tournament_id', target)
+    const tbls = (tablesData ?? []) as TableRow[]
+    setTables(tbls)
+
+    const tableIds = tbls.map((t) => t.id)
+    if (tableIds.length > 0) {
+      const { data: litroData } = await insforge.database
+        .from('litros')
+        .select()
+        .in('table_id', tableIds)
+        .eq('is_open', true)
+      setOpenLitros((litroData ?? []) as LitroRow[])
+    } else {
+      setOpenLitros([])
+    }
   }, [])
 
   const loadRows = useCallback(async (silent = false) => {
@@ -69,28 +90,44 @@ export default function GlobalLeaderboard() {
 
   useEffect(() => {
     void loadRows()
-    void loadLitroDebts()
-  }, [selected, loadRows, loadLitroDebts])
+    void loadMesaData()
+  }, [selected, loadRows, loadMesaData])
 
   useEffect(() => {
     const interval = setInterval(() => {
       void loadTournaments()
       void loadRows(true)
-      void loadLitroDebts()
+      void loadMesaData()
     }, POLL_MS)
     return () => clearInterval(interval)
-  }, [loadTournaments, loadRows, loadLitroDebts])
+  }, [loadTournaments, loadRows, loadMesaData])
 
-  async function handlePayMesa(tableId: string) {
-    setPayBusyTableId(tableId)
+  async function handlePayPlayer(tableId: string, playerId: string) {
+    setPayBusyKey(`${tableId}:${playerId}`)
     await insforge.database
-      .from('litros')
+      .from('games')
       .update({ paid: true })
       .eq('table_id', tableId)
-      .eq('is_open', false)
+      .eq('loser_id', playerId)
       .eq('paid', false)
-    setPayBusyTableId(null)
-    void loadLitroDebts()
+    setPayBusyKey(null)
+    void loadMesaData()
+  }
+
+  async function handleResetMesa(tableId: string) {
+    setResetBusyTableId(tableId)
+    const litro = openLitros.find((l) => l.table_id === tableId)
+    if (litro) {
+      await insforge.database
+        .from('litros')
+        .update({ is_open: false, closed_at: new Date().toISOString() })
+        .eq('id', litro.id)
+      await insforge.database
+        .from('litros')
+        .insert([{ table_id: tableId, litro_number: litro.litro_number + 1, hands_played: 0, is_open: true }])
+    }
+    setResetBusyTableId(null)
+    void loadMesaData()
   }
 
   const emptyMessage =
@@ -100,22 +137,18 @@ export default function GlobalLeaderboard() {
   const topRows = rows.slice(0, TOP_N)
   const restRows = rows.slice(TOP_N)
 
-  const mesaDebtGroups: MesaDebtGroup[] = []
-  const groupIndex = new Map<string, number>()
-  for (const d of litroDebts) {
-    let idx = groupIndex.get(d.table_id)
-    if (idx === undefined) {
-      idx = mesaDebtGroups.length
-      groupIndex.set(d.table_id, idx)
-      const tournamentName = selected === ALL ? tournaments.find((t) => t.id === d.tournament_id)?.name : undefined
-      mesaDebtGroups.push({
-        tableId: d.table_id,
-        label: tournamentName ? `${tournamentName} · Mesa ${d.table_number}` : `Mesa ${d.table_number}`,
-        debts: [],
-      })
+  const mesaDebtGroups: MesaDebtGroup[] = tables.map((t) => {
+    const litro = openLitros.find((l) => l.table_id === t.id)
+    const tournamentName = selected === ALL ? tournaments.find((tour) => tour.id === t.tournament_id)?.name : undefined
+    return {
+      tableId: t.id,
+      label: tournamentName ? `${tournamentName} · Mesa ${t.table_number}` : `Mesa ${t.table_number}`,
+      litro: litro
+        ? { litroNumber: litro.litro_number, handsPlayed: litro.hands_played, handsPerLitro: t.hands_per_litro }
+        : null,
+      debts: litroDebts.filter((d) => d.table_id === t.id),
     }
-    mesaDebtGroups[idx].debts.push(d)
-  }
+  })
 
   const isTripleView = showPayments && topView && restRows.length > 0
 
@@ -148,7 +181,7 @@ export default function GlobalLeaderboard() {
           className="refresh-btn"
           onClick={() => {
             void loadRows()
-            void loadLitroDebts()
+            void loadMesaData()
           }}
           disabled={refreshing}
           title="Actualizar"
@@ -188,8 +221,10 @@ export default function GlobalLeaderboard() {
               <MesaDebtsPanel
                 groups={mesaDebtGroups}
                 canManage={Boolean(user)}
-                busyTableId={payBusyTableId}
-                onPay={handlePayMesa}
+                payBusyKey={payBusyKey}
+                resetBusyTableId={resetBusyTableId}
+                onPayPlayer={handlePayPlayer}
+                onResetMesa={handleResetMesa}
               />
             </div>
           )}
