@@ -18,6 +18,7 @@ export default function LeaderboardTable({
   emptyMessage = 'Aún no hay partidas registradas.',
   rankOffset = 0,
   compact = false,
+  scale = 1,
 }: {
   rows: LeaderboardRow[]
   emptyMessage?: string
@@ -25,13 +26,15 @@ export default function LeaderboardTable({
   rankOffset?: number
   /** Smaller avatars, no medal styling — for a secondary "everyone else" table. */
   compact?: boolean
+  /** Proportionally scales text and avatars, e.g. 0.92 for 8% smaller. */
+  scale?: number
 }) {
   if (rows.length === 0) {
     return <p className="empty-state">{emptyMessage}</p>
   }
 
   return (
-    <div className={`table-wrap ${compact ? 'table-compact' : ''}`}>
+    <div className={`table-wrap ${compact ? 'table-compact' : ''}`} style={scale !== 1 ? { fontSize: `${scale * 100}%` } : undefined}>
       <table>
         <thead>
           <tr>
@@ -57,7 +60,7 @@ export default function LeaderboardTable({
                       <PlayerAvatar
                         name={r.player_name}
                         url={r.player_avatar_url}
-                        size={compact ? 30 : rank <= 3 ? 72 : 52}
+                        size={Math.round((compact ? 30 : rank <= 3 ? 72 : 52) * scale)}
                       />
                     </span>
                     {r.player_name}

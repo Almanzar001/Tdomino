@@ -602,6 +602,32 @@ main {
   }
 }
 
+/* Dense mode: all three leaderboard columns visible at once — shrink
+   the page's outer whitespace (not the table content itself) so the
+   Top 8 fits without scrolling. */
+.page-dense {
+  margin: -1.1rem -1.25rem -4.85rem;
+  padding: 0;
+}
+
+.page-dense .page-header {
+  margin-bottom: 0;
+}
+
+.page-dense .page-header h1 {
+  font-size: 1.4rem;
+  margin-bottom: 0;
+}
+
+.page-dense .tournament-tabs {
+  margin: 0.35rem 0 0.25rem;
+  padding-bottom: 0.35rem;
+}
+
+.page-dense .top10-layout {
+  gap: 1rem;
+}
+
 .table-compact th,
 .table-compact td {
   padding: 0.5em 0.7em;

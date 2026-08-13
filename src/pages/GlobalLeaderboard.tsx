@@ -120,8 +120,10 @@ export default function GlobalLeaderboard() {
     }))
     .sort((a, b) => b.losses - a.losses)
 
+  const isTripleView = showPayments && topView && restRows.length > 0
+
   return (
-    <div className="page">
+    <div className={`page ${isTripleView ? 'page-dense' : ''}`}>
       <div className="page-header">
         <h1>🏆 Tabla de líderes</h1>
         {rows.length > TOP_N && (
@@ -195,7 +197,11 @@ export default function GlobalLeaderboard() {
             </div>
           )}
           <div className="top10-main">
-            <LeaderboardTable rows={topView ? topRows : rows} emptyMessage={emptyMessage} />
+            <LeaderboardTable
+              rows={topView ? topRows : rows}
+              emptyMessage={emptyMessage}
+              scale={isTripleView ? 0.92 : 1}
+            />
           </div>
           {topView && restRows.length > 0 && (
             <div className="top10-side">

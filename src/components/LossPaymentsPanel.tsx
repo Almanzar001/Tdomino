@@ -40,7 +40,9 @@ export default function LossPaymentsPanel({
               <PlayerAvatar name={d.player_name} url={d.player_avatar_url} size={32} />
               {d.player_name}
             </span>
-            <span className="loss-count">{d.losses} perdida{d.losses === 1 ? '' : 's'}</span>
+            <span className="loss-count" title={`${d.losses} perdida${d.losses === 1 ? '' : 's'}`}>
+              {d.losses}P
+            </span>
             {canManage ? (
               d.paid ? (
                 <span className="loss-paid-badge">✅ Pago</span>
