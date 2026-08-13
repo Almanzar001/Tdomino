@@ -245,11 +245,28 @@ export default function TournamentDetail() {
       .delete()
       .eq('tournament_id', id)
       .eq('player_id', playerId)
-    setRosterBusy(false)
     if (error) {
+      setRosterBusy(false)
       setError(error.message)
       return
     }
+
+    // If this was the player's last tournament and they have no games
+    // anywhere, they're now an orphan record — delete them entirely so
+    // they don't linger in the global leaderboard.
+    const [{ data: otherRosters }, { data: anyGames }] = await Promise.all([
+      insforge.database.from('tournament_players').select('tournament_id').eq('player_id', playerId),
+      insforge.database
+        .from('games')
+        .select('id')
+        .or(`winner_id.eq.${playerId},loser_id.eq.${playerId},paseador_id.eq.${playerId}`)
+        .limit(1),
+    ])
+    if (!otherRosters?.length && !anyGames?.length) {
+      await insforge.database.from('players').delete().eq('id', playerId)
+    }
+
+    setRosterBusy(false)
     void loadAll()
   }
 
