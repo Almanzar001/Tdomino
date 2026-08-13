@@ -253,6 +253,9 @@ export default function TournamentRoulette() {
               <button type="button" className="secondary" onClick={completeTable} disabled={spinning}>
                 ✅ Completar mesa y seguir
               </button>
+              <button type="button" className="secondary danger" onClick={resetDraw} disabled={spinning}>
+                🔄 Reiniciar sorteo
+              </button>
             </div>
           )}
 
@@ -260,6 +263,28 @@ export default function TournamentRoulette() {
             <div className="roulette-winner-banner" key={lastWinner.player.id + lastWinner.table}>
               <PlayerAvatar name={lastWinner.player.name} url={lastWinner.player.avatar_url} size={40} />
               <span><strong>{lastWinner.player.name}</strong> va a la Mesa {lastWinner.table + 1}</span>
+            </div>
+          )}
+
+          {phase === 'drawing' && (
+            <div className="table-cards roulette-live-tables">
+              {tables.map((t, i) => (
+                <div key={i} className={`table-card ${i === currentTableIndex ? 'table-card-active' : ''}`}>
+                  <h3>Mesa {i + 1}{i === currentTableIndex && <span className="tab-live-dot" aria-hidden="true" />}</h3>
+                  {t.length === 0 ? (
+                    <p className="muted">Sin jugadores todavía.</p>
+                  ) : (
+                    <ul className="chip-list">
+                      {t.map((p) => (
+                        <li key={p.id} className="chip">
+                          <PlayerAvatar name={p.name} url={p.avatar_url} size={24} />
+                          {p.name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </section>

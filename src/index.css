@@ -1277,4 +1277,17 @@ th.points-col {
   margin: 0 0 0.6rem;
   color: var(--text-h);
   font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.table-card-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg), var(--shadow);
+}
+
+.roulette-live-tables {
+  width: 100%;
+  margin-top: 0.5rem;
 }
