@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { uploadPlayerPhoto } from '../lib/uploadPlayerPhoto'
 import PlayerAvatar from '../components/PlayerAvatar'
 import LeaderboardTable from '../components/LeaderboardTable'
+import ChampionsCelebration from '../components/ChampionsCelebration'
 import { GAME_POINTS, type Game, type Player, type Tournament, type TournamentLeaderboardRow, type TournamentPlayer } from '../types'
 
 export default function TournamentDetail() {
@@ -22,6 +23,7 @@ export default function TournamentDetail() {
   const [error, setError] = useState<string | null>(null)
   const [dangerBusy, setDangerBusy] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'reset' | 'delete' | null>(null)
+  const [showCelebration, setShowCelebration] = useState(false)
 
   const [newPlayerName, setNewPlayerName] = useState('')
   const [newPlayerFile, setNewPlayerFile] = useState<File | null>(null)
@@ -306,7 +308,10 @@ export default function TournamentDetail() {
       .from('tournaments')
       .update({ status: 'finished', finished_at: new Date().toISOString() })
       .eq('id', id)
-    if (!error) void loadAll()
+    if (!error) {
+      void loadAll()
+      if (leaderboard.some((r) => r.points > 0)) setShowCelebration(true)
+    }
   }
 
   async function handleReopen() {
@@ -379,7 +384,20 @@ export default function TournamentDetail() {
         <Link to={`/torneos/${id}/ruleta`} className="secondary-link roulette-link">
           🎡 Ruleta de mesas
         </Link>
+        {tournament.status === 'finished' && leaderboard.some((r) => r.points > 0) && (
+          <button type="button" className="secondary-link roulette-link" onClick={() => setShowCelebration(true)}>
+            🏆 Ver campeones
+          </button>
+        )}
       </div>
+
+      {showCelebration && leaderboard.length > 0 && (
+        <ChampionsCelebration
+          tournamentName={tournament.name}
+          top3={leaderboard.slice(0, 3)}
+          onClose={() => setShowCelebration(false)}
+        />
+      )}
 
       {user && (
         <div className="actions-row">
