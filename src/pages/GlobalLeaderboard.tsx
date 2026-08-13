@@ -1,23 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { insforge } from '../lib/insforge'
-import { useAuth } from '../context/AuthContext'
 import LeaderboardTable, { type LeaderboardRow } from '../components/LeaderboardTable'
-import LossPaymentsPanel, { type LossDebt } from '../components/LossPaymentsPanel'
-import type { Tournament } from '../types'
+import MesaDebtsPanel, { type MesaDebtGroup } from '../components/MesaDebtsPanel'
+import type { LitroDebtRow, Tournament } from '../types'
 
 const ALL = 'all'
 const POLL_MS = 10000
 const TOP_N = 8
 
 export default function GlobalLeaderboard() {
-  const { user } = useAuth()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [selected, setSelected] = useState<string>(ALL)
   const [rows, setRows] = useState<LeaderboardRow[]>([])
-  const [paidMap, setPaidMap] = useState<Record<string, boolean>>({})
+  const [litroDebts, setLitroDebts] = useState<LitroDebtRow[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [paymentsBusy, setPaymentsBusy] = useState(false)
   const [topView, setTopView] = useState(false)
   const [showPayments, setShowPayments] = useState(false)
   const selectedRef = useRef(selected)
@@ -32,13 +29,11 @@ export default function GlobalLeaderboard() {
     if (!error && data) setTournaments(data as Tournament[])
   }, [])
 
-  const loadPaidMap = useCallback(async () => {
-    const { data, error } = await insforge.database.from('players').select('id, losses_paid')
-    if (!error && data) {
-      const map: Record<string, boolean> = {}
-      for (const p of data as { id: string; losses_paid: boolean }[]) map[p.id] = p.losses_paid
-      setPaidMap(map)
-    }
+  const loadLitroDebts = useCallback(async () => {
+    const target = selectedRef.current
+    const query = insforge.database.from('litro_debts').select()
+    const { data, error } = target === ALL ? await query : await query.eq('tournament_id', target)
+    if (!error && data) setLitroDebts(data as LitroDebtRow[])
   }, [])
 
   const loadRows = useCallback(async (silent = false) => {
@@ -71,37 +66,17 @@ export default function GlobalLeaderboard() {
 
   useEffect(() => {
     void loadRows()
-    void loadPaidMap()
-  }, [selected, loadRows, loadPaidMap])
+    void loadLitroDebts()
+  }, [selected, loadRows, loadLitroDebts])
 
   useEffect(() => {
     const interval = setInterval(() => {
       void loadTournaments()
       void loadRows(true)
-      void loadPaidMap()
+      void loadLitroDebts()
     }, POLL_MS)
     return () => clearInterval(interval)
-  }, [loadTournaments, loadRows, loadPaidMap])
-
-  async function handlePay(playerId: string) {
-    setPaymentsBusy(true)
-    setPaidMap((prev) => ({ ...prev, [playerId]: true }))
-    await insforge.database.from('players').update({ losses_paid: true }).eq('id', playerId)
-    setPaymentsBusy(false)
-  }
-
-  async function handleResetPayments() {
-    const ids = debts.map((d) => d.player_id)
-    if (ids.length === 0) return
-    setPaymentsBusy(true)
-    setPaidMap((prev) => {
-      const next = { ...prev }
-      for (const id of ids) next[id] = false
-      return next
-    })
-    await insforge.database.from('players').update({ losses_paid: false }).in('id', ids)
-    setPaymentsBusy(false)
-  }
+  }, [loadTournaments, loadRows, loadLitroDebts])
 
   const emptyMessage =
     selected === ALL
@@ -109,16 +84,23 @@ export default function GlobalLeaderboard() {
       : 'Aún no hay partidas registradas en este torneo.'
   const topRows = rows.slice(0, TOP_N)
   const restRows = rows.slice(TOP_N)
-  const debts: LossDebt[] = rows
-    .filter((r) => r.losses > 0)
-    .map((r) => ({
-      player_id: r.player_id,
-      player_name: r.player_name,
-      player_avatar_url: r.player_avatar_url,
-      losses: r.losses,
-      paid: paidMap[r.player_id] ?? false,
-    }))
-    .sort((a, b) => b.losses - a.losses)
+
+  const mesaDebtGroups: MesaDebtGroup[] = []
+  const groupIndex = new Map<string, number>()
+  for (const d of litroDebts) {
+    let idx = groupIndex.get(d.table_id)
+    if (idx === undefined) {
+      idx = mesaDebtGroups.length
+      groupIndex.set(d.table_id, idx)
+      const tournamentName = selected === ALL ? tournaments.find((t) => t.id === d.tournament_id)?.name : undefined
+      mesaDebtGroups.push({
+        tableId: d.table_id,
+        label: tournamentName ? `${tournamentName} · Mesa ${d.table_number}` : `Mesa ${d.table_number}`,
+        debts: [],
+      })
+    }
+    mesaDebtGroups[idx].debts.push(d)
+  }
 
   const isTripleView = showPayments && topView && restRows.length > 0
 
@@ -136,7 +118,7 @@ export default function GlobalLeaderboard() {
             {topView ? '📋' : '8️⃣'}
           </button>
         )}
-        {debts.length > 0 && (
+        {mesaDebtGroups.length > 0 && (
           <button
             type="button"
             className={`refresh-btn ${showPayments ? 'active' : ''}`}
@@ -151,7 +133,7 @@ export default function GlobalLeaderboard() {
           className="refresh-btn"
           onClick={() => {
             void loadRows()
-            void loadPaidMap()
+            void loadLitroDebts()
           }}
           disabled={refreshing}
           title="Actualizar"
@@ -185,15 +167,10 @@ export default function GlobalLeaderboard() {
         <p className="muted">Cargando…</p>
       ) : showPayments || topView ? (
         <div className="top10-layout">
-          {showPayments && debts.length > 0 && (
+          {showPayments && mesaDebtGroups.length > 0 && (
             <div className="top10-payments">
-              <LossPaymentsPanel
-                debts={debts}
-                canManage={Boolean(user)}
-                busy={paymentsBusy}
-                onPay={handlePay}
-                onReset={handleResetPayments}
-              />
+              <h2>💰 Pagos pendientes</h2>
+              <MesaDebtsPanel groups={mesaDebtGroups} />
             </div>
           )}
           <div className="top10-main">

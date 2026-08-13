@@ -6,9 +6,9 @@ import { uploadPlayerPhoto } from '../lib/uploadPlayerPhoto'
 import PlayerAvatar from '../components/PlayerAvatar'
 import LeaderboardTable from '../components/LeaderboardTable'
 import ChampionsCelebration from '../components/ChampionsCelebration'
+import MesaDebtsPanel from '../components/MesaDebtsPanel'
 import {
   GAME_POINTS,
-  PESO_PER_HAND,
   type Game,
   type LitroDebtRow,
   type LitroRow,
@@ -142,6 +142,12 @@ export default function TournamentDetail() {
     .filter((p): p is Player => Boolean(p))
 
   const playersNotInRoster = allPlayers.filter((p) => !roster.some((rp) => rp.player_id === p.id))
+
+  const mesaDebtGroups = tables.map((t) => ({
+    tableId: t.id,
+    label: `Mesa ${t.table_number}`,
+    debts: litroDebts.filter((d) => d.table_id === t.id),
+  }))
 
   const playersForGame = selectedTableId
     ? rosterPlayers.filter((p) =>
@@ -511,11 +517,17 @@ export default function TournamentDetail() {
 
       {tables.length > 0 && (
         <section className="section">
-          <h2>💰 Litros y pagos pendientes</h2>
+          <h2>💰 Pagos pendientes</h2>
+          <MesaDebtsPanel groups={mesaDebtGroups} />
+        </section>
+      )}
+
+      {tables.length > 0 && (
+        <section className="section">
+          <h2>🎲 Manos jugadas por mesa</h2>
           <div className="table-cards">
             {tables.map((t) => {
               const litro = openLitros.find((l) => l.table_id === t.id)
-              const debts = litroDebts.filter((d) => d.table_id === t.id)
               return (
                 <div key={t.id} className="table-card">
                   <h3>Mesa {t.table_number}</h3>
@@ -524,18 +536,6 @@ export default function TournamentDetail() {
                       ? `Litro ${litro.litro_number} · ${litro.hands_played}/${t.hands_per_litro} manos`
                       : 'Sin litro abierto'}
                   </p>
-                  {debts.length === 0 ? (
-                    <p className="muted">Sin pagos pendientes.</p>
-                  ) : (
-                    <ul className="chip-list">
-                      {debts.map((d) => (
-                        <li key={d.player_id} className="chip">
-                          <PlayerAvatar name={d.player_name} url={d.player_avatar_url} size={24} />
-                          {d.player_name} — {d.losses} × ${PESO_PER_HAND} = ${d.losses * PESO_PER_HAND}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                 </div>
               )
             })}

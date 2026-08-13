@@ -3,7 +3,6 @@ export interface Player {
   name: string
   avatar_url: string | null
   avatar_key: string | null
-  losses_paid: boolean
   created_at: string
 }
 
