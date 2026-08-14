@@ -1377,12 +1377,20 @@ th.points-col {
   gap: 0.6rem;
 }
 
-.mesa-debts-total {
-  margin: 0.4rem 0;
+.mesa-debts-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.mesa-debts-total strong {
-  color: var(--text-h);
+.mesa-hands-count {
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.mesa-debt-row-paid {
+  opacity: 0.5;
+  text-decoration: line-through;
 }
 
 .roulette-live-tables {

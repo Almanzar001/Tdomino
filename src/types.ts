@@ -64,6 +64,7 @@ export interface LitroDebtRow {
   player_name: string
   player_avatar_url: string | null
   losses: number
+  all_paid: boolean
 }
 
 export interface TournamentLeaderboardRow {

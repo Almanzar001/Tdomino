@@ -104,12 +104,15 @@ export default function GlobalLeaderboard() {
 
   async function handlePayPlayer(tableId: string, playerId: string) {
     setPayBusyKey(`${tableId}:${playerId}`)
-    await insforge.database
+    const litro = openLitros.find((l) => l.table_id === tableId)
+    let query = insforge.database
       .from('games')
       .update({ paid: true })
       .eq('table_id', tableId)
       .eq('loser_id', playerId)
       .eq('paid', false)
+    if (litro) query = query.eq('litro_id', litro.id)
+    await query
     setPayBusyKey(null)
     void loadMesaData()
   }
@@ -138,14 +141,13 @@ export default function GlobalLeaderboard() {
   const restRows = rows.slice(TOP_N)
 
   const mesaDebtGroups: MesaDebtGroup[] = tables.map((t) => {
-    const litro = openLitros.find((l) => l.table_id === t.id)
     const tournamentName = selected === ALL ? tournaments.find((tour) => tour.id === t.tournament_id)?.name : undefined
+    const litro = openLitros.find((l) => l.table_id === t.id)
     return {
       tableId: t.id,
       label: tournamentName ? `${tournamentName} · Mesa ${t.table_number}` : `Mesa ${t.table_number}`,
-      litro: litro
-        ? { litroNumber: litro.litro_number, handsPlayed: litro.hands_played, handsPerLitro: t.hands_per_litro }
-        : null,
+      handsPlayed: litro?.hands_played ?? null,
+      handsPerLitro: litro ? t.hands_per_litro : null,
       debts: litroDebts.filter((d) => d.table_id === t.id),
     }
   })

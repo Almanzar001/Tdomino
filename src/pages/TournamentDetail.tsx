@@ -150,9 +150,8 @@ export default function TournamentDetail() {
     return {
       tableId: t.id,
       label: `Mesa ${t.table_number}`,
-      litro: litro
-        ? { litroNumber: litro.litro_number, handsPlayed: litro.hands_played, handsPerLitro: t.hands_per_litro }
-        : null,
+      handsPlayed: litro?.hands_played ?? null,
+      handsPerLitro: litro ? t.hands_per_litro : null,
       debts: litroDebts.filter((d) => d.table_id === t.id),
     }
   })
@@ -377,12 +376,15 @@ export default function TournamentDetail() {
 
   async function handlePayPlayer(tableId: string, playerId: string) {
     setPayBusyKey(`${tableId}:${playerId}`)
-    const { error } = await insforge.database
+    const litro = openLitros.find((l) => l.table_id === tableId)
+    let query = insforge.database
       .from('games')
       .update({ paid: true })
       .eq('table_id', tableId)
       .eq('loser_id', playerId)
       .eq('paid', false)
+    if (litro) query = query.eq('litro_id', litro.id)
+    const { error } = await query
     setPayBusyKey(null)
     if (error) {
       setError(error.message)
