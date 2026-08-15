@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { insforge } from '../lib/insforge'
+import { playSpinTicks, playWinChime } from '../lib/rouletteSound'
 import PlayerAvatar from '../components/PlayerAvatar'
 import type { Player, Tournament, TournamentPlayer } from '../types'
 
@@ -156,6 +157,7 @@ export default function TournamentRoulette() {
 
     setSpinning(true)
     setRotation(target)
+    playSpinTicks(SPIN_DURATION_MS)
 
     setTimeout(() => {
       setRemaining((prev) => prev.filter((p) => p.id !== winner.id))
@@ -166,6 +168,7 @@ export default function TournamentRoulette() {
       })
       setLastWinner({ player: winner, table: tableIdx })
       setSpinning(false)
+      playWinChime()
     }, SPIN_DURATION_MS)
   }
 
