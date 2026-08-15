@@ -1,7 +1,9 @@
+import { useLayoutEffect, useRef } from 'react'
 import PlayerAvatar from './PlayerAvatar'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 const RANK_CLASS = ['rank-1', 'rank-2', 'rank-3']
+const REORDER_MS = 500
 
 export interface LeaderboardRow {
   player_id: string
@@ -29,6 +31,33 @@ export default function LeaderboardTable({
   /** Proportionally scales text and avatars, e.g. 0.92 for 8% smaller. */
   scale?: number
 }) {
+  const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
+  const prevTops = useRef(new Map<string, number>())
+
+  useLayoutEffect(() => {
+    const nextTops = new Map<string, number>()
+    rowRefs.current.forEach((el, playerId) => {
+      const top = el.getBoundingClientRect().top
+      nextTops.set(playerId, top)
+      const prevTop = prevTops.current.get(playerId)
+      if (prevTop !== undefined) {
+        const deltaY = prevTop - top
+        if (deltaY !== 0) {
+          el.style.transition = 'none'
+          el.style.transform = `translateY(${deltaY}px)`
+          requestAnimationFrame(() => {
+            el.style.transition = `transform ${REORDER_MS}ms ease`
+            el.style.transform = ''
+            setTimeout(() => {
+              el.style.transition = ''
+            }, REORDER_MS)
+          })
+        }
+      }
+    })
+    prevTops.current = nextTops
+  }, [rows])
+
   if (rows.length === 0) {
     return <p className="empty-state">{emptyMessage}</p>
   }
@@ -52,7 +81,14 @@ export default function LeaderboardTable({
             const medal = !compact ? MEDALS[rank - 1] : undefined
             const rankClass = !compact ? RANK_CLASS[rank - 1] : undefined
             return (
-              <tr key={r.player_id} className={rank === 1 && r.points > 0 ? 'leader-row' : ''}>
+              <tr
+                key={r.player_id}
+                ref={(el) => {
+                  if (el) rowRefs.current.set(r.player_id, el)
+                  else rowRefs.current.delete(r.player_id)
+                }}
+                className={rank === 1 && r.points > 0 ? 'leader-row' : ''}
+              >
                 <td className="rank-cell">{medal ?? rank}</td>
                 <td>
                   <span className="name-cell">
